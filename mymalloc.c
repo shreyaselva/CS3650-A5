@@ -19,13 +19,14 @@
 
 typedef struct block {
   size_t size;
-  struct block *next; //next block in sbrk order - in line w assumptions
+  struct block *next; //next block in sbrk order(assumption: all of the blocks are kept in sbrk order)
   int free;
 } block_t;
 
 static block_t *head = NULL;
 static block_t *tail = NULL;
 
+//gets a new block from sbrk, adds it to the end of the list
 static block_t *request_block(size_t s) {
   assert(s > 0);
 
@@ -51,7 +52,7 @@ static block_t *request_block(size_t s) {
   return new_block;
 }
 
-//find the first free block that fits, or request a new one with sbrk
+//find the first free block that fits user bytes (assumption: allocation hapens via first-fit)
 static block_t *find_free_block(size_t s) {
   assert(s > 0);
 
@@ -65,6 +66,7 @@ static block_t *find_free_block(size_t s) {
   return NULL;
 }
 
+//allocates s bytes, reuses free block if it fits bytes
 void *mymalloc(size_t s) {
   if (s == 0) {
     return NULL;
@@ -81,13 +83,14 @@ void *mymalloc(size_t s) {
       // if sbrk fails (returns (void *) -1)
       return NULL;
     }
-  }
+    }
 
   assert(!block->free && block->size >= s);
   debug_printf("Malloc %zu bytes\n", s);
   return (void *)(block + 1);
 }
 
+//allocates memmory for each nmemb item for s bytes
 void *mycalloc(size_t nmemb, size_t s) {
 
   if (nmemb != 0 && s > SIZE_MAX / nmemb) {
@@ -96,7 +99,7 @@ void *mycalloc(size_t nmemb, size_t s) {
   size_t total_size = nmemb * s;
 
   void *p = mymalloc(total_size);
-  if(p == NULL) {
+  if (p == NULL) {
     // We are out of memory
     // if we get NULL back from mymalloc
     return NULL;
@@ -107,15 +110,17 @@ void *mycalloc(size_t nmemb, size_t s) {
   return p;
 }
 
+//marks ptr blocks as free for reuse
 void myfree(void *ptr) {
   if (ptr == NULL) {
     return;
   }
   //the size stored in ptr's block header
-  block_t *block = (block_t *)ptr -1;
+  block_t *block = (block_t *)ptr - 1;
   size_t size = block->size;
 
- //mark ptr's block as free, block stays in list for reuse (not returned to OS, according to assumptions)
+  //mark ptr's block as free, block stays in list for reuse (not returned to OS, according to assumptions)
+  assert(!block->free);
   block->free = 1;
   debug_printf("Freed %zu bytes\n", size);
 }
