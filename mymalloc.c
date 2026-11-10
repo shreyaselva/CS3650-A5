@@ -31,7 +31,7 @@ static block_t *request_block(size_t s) {
   void *req = sbrk(total_size);
   if (req == (void*)-1) {
     return NULL;
-}
+  }
 
   block_t *new_block = (block_t *)req;
   new_block->size = s;
@@ -59,11 +59,11 @@ void *mymalloc(size_t s) {
   while (curr != NULL) {
     if (curr->free && curr->size >= s) {
       curr->free = 0;
-      debug_printf("Malloc %zue bytes\n", s);
+      debug_printf("Malloc %zu bytes\n", s);
       return (void *)(curr + 1);
     }
     curr = curr->next;
-}
+  }
 
   block_t *new_block = request_block(s);
   if (new_block == NULL){
@@ -98,10 +98,10 @@ void *mycalloc(size_t nmemb, size_t s) {
 void myfree(void *ptr) {
   if (ptr == NULL) {
     return;
-}
+  }
   //the size stored in ptr's block header
   block_t *block = (block_t *)ptr -1;
-  size_t size = 0;
+  size_t size = block->size;
 
  //mark ptr's block as free
   block->free = 1;
