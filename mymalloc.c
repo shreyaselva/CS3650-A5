@@ -4,6 +4,10 @@
 #include <stdio.h>
 
 // Include any other headers we need here
+#include <unistd.h>
+#include <string.h>
+#include <stdint.h>
+#include <assert.h>
 
 // NOTE: You should NOT include <stdlib.h> in your final implementation.
 // malloc.h turns every call to malloc/calloc/free in this file into a call
@@ -11,37 +15,95 @@
 
 #include <debug.h> // definition of debug_printf
 
+typedef struct block {
+  size_t size;
+  struct block *next;
+  int free;
+} block_t;
+
+static block_t *head = NULL;
+static block_t *tail = NULL;
+
+static block_t *request_block(size_t s) {
+  assert(s > 0);
+
+  size_t total_size = sizeof(block_t) + s;
+  void *req = sbrk(total_size);
+  if (req == (void*)-1) {
+    return NULL;
+}
+
+  block_t *new_block = (block_t *)req;
+  new_block->size = s;
+  new_block->free = 0;
+  new_block->next = NULL;
+
+  if (head == NULL) {
+    head = new_block;
+    tail = new_block;
+  } else {
+    tail->next = new_block;
+    tail = new_block;
+    }
+
+  return new_block;
+}
+
 void *mymalloc(size_t s) {
-
-  void *p = NULL; // TODO: find the first free block that fits, or request a
-                  // new one with sbrk. Determine how you will request memory :)
-
-  if (!p) {
-    // We are out of memory
-    // if sbrk fails (returns (void *) -1)
+  if (s==0) {
+     return NULL;
   }
-  debug_printf("Malloc %zu bytes\n", s);
 
-  return p;
+  //find the first free block that fits, or request a new one with sbrk
+  block_t *curr = head;
+  while (curr != NULL) {
+    if (curr->free && curr->size >= s) {
+      curr->free = 0;
+      debug_printf("Malloc %zue bytes\n", s);
+      return (void *)(curr + 1);
+    }
+    curr = curr->next;
+}
+
+  block_t *new_block = request_block(s);
+  if (new_block == NULL){
+  //we are out of memory
+  // if sbrk fails (returns (void *) -1)
+    return NULL;
+  }
+
+  debug_printf("Malloc %zu bytes\n",s);
+  return (void *)(new_block + 1);
 }
 
 void *mycalloc(size_t nmemb, size_t s) {
 
-  void *p = NULL; // TODO: get the memory from mymalloc, then set it to 0
+  if (nmemb != 0 && s > SIZE_MAX / nmemb) {
+    return NULL;
+  }
+  size_t total_size = nmemb * s;
 
-  if (!p) {
+  void *p = mymalloc(total_size);
+  if(p == NULL) {
     // We are out of memory
     // if we get NULL back from mymalloc
+    return NULL;
   }
-  debug_printf("Calloc %zu bytes\n", nmemb * s);
 
+  debug_printf("Calloc %zu bytes\n", total_size);
+  memset(p, 0, total_size);
   return p;
 }
 
 void myfree(void *ptr) {
-  size_t size = 0; // TODO: the size stored in ptr's block header
+  if (ptr == NULL) {
+    return;
+}
+  //the size stored in ptr's block header
+  block_t *block = (block_t *)ptr -1;
+  size_t size = 0;
 
-  // TODO: mark ptr's block as free
-
+ //mark ptr's block as free
+  block->free = 1;
   debug_printf("Freed %zu bytes\n", size);
 }
