@@ -15,11 +15,11 @@
 
 #include <debug.h> // definition of debug_printf
 
-//assuptions: blocks are kept in sbrk order, memory isn't returned to OS, no splits
+//assuptions: all of the blocks are kept in sbrk order, alloaction happens via first-fit, memory isn't returned to the Operating System, no splits
 
 typedef struct block {
   size_t size;
-  struct block *next;
+  struct block *next; //next block in sbrk order - in line w assumptions
   int free;
 } block_t;
 
@@ -66,20 +66,26 @@ static block_t *find_free_block(size_t s) {
 }
 
 void *mymalloc(size_t s) {
-  if (s==0) {
-     return NULL;
+  if (s == 0) {
+    return NULL;
   }
-  //searches for free block that can hold user's bytes
+
+  // find the first free block that fits, or request a new one with sbrk
   block_t *block = find_free_block(s);
   if (block != NULL) {
-  //we are out of memory
-  // if sbrk fails (returns (void *) -1)
     block->free = 0;
   } else {
     block = request_block(s);
     if (block == NULL) {
-    return NULL;
+      // we are out of memory
+      // if sbrk fails (returns (void *) -1)
+      return NULL;
+    }
   }
+
+  assert(!block->free && block->size >= s);
+  debug_printf("Malloc %zu bytes\n", s);
+  return (void *)(block + 1);
 }
 
 void *mycalloc(size_t nmemb, size_t s) {
@@ -109,7 +115,7 @@ void myfree(void *ptr) {
   block_t *block = (block_t *)ptr -1;
   size_t size = block->size;
 
- //mark ptr's block as free
+ //mark ptr's block as free, block stays in list for reuse (not returned to OS, according to assumptions)
   block->free = 1;
   debug_printf("Freed %zu bytes\n", size);
 }
