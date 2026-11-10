@@ -15,6 +15,8 @@
 
 #include <debug.h> // definition of debug_printf
 
+//assuptions: blocks are kept in sbrk order, memory isn't returned to OS, no splits
+
 typedef struct block {
   size_t size;
   struct block *next;
@@ -49,31 +51,35 @@ static block_t *request_block(size_t s) {
   return new_block;
 }
 
+//find the first free block that fits, or request a new one with sbrk
+static block_t *find_free_block(size_t s) {
+  assert(s > 0);
+
+  block_t *curr = head;
+  while (curr != NULL) {
+    if (curr->free && curr->size >= s) {
+      return curr;
+    }
+    curr = curr->next;
+  }
+  return NULL;
+}
+
 void *mymalloc(size_t s) {
   if (s==0) {
      return NULL;
   }
-
-  //find the first free block that fits, or request a new one with sbrk
-  block_t *curr = head;
-  while (curr != NULL) {
-    if (curr->free && curr->size >= s) {
-      curr->free = 0;
-      debug_printf("Malloc %zu bytes\n", s);
-      return (void *)(curr + 1);
-    }
-    curr = curr->next;
-  }
-
-  block_t *new_block = request_block(s);
-  if (new_block == NULL){
+  //searches for free block that can hold user's bytes
+  block_t *block = find_free_block(s);
+  if (block != NULL) {
   //we are out of memory
   // if sbrk fails (returns (void *) -1)
+    block->free = 0;
+  } else {
+    block = request_block(s);
+    if (block == NULL) {
     return NULL;
   }
-
-  debug_printf("Malloc %zu bytes\n",s);
-  return (void *)(new_block + 1);
 }
 
 void *mycalloc(size_t nmemb, size_t s) {
